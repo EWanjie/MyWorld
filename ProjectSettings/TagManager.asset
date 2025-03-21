@@ -4,8 +4,9 @@
 TagManager:
   serializedVersion: 3
   tags:
-  - Floor
   - Item
+  - Furniture
+  - Background
   layers:
   - Default
   - TransparentFX

@@ -1,7 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 public class ItemManager : MonoBehaviour
 {
@@ -13,43 +11,72 @@ public class ItemManager : MonoBehaviour
     private PolygonCollider2D totalCollider;
     private Collider2D currentCollider;
 
+    private SpriteRenderer spriteRenderer;
+
     private void Start()
     {
         totalCollider = GetComponent<PolygonCollider2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
+
+        SetStatePosition(); //Set initial range
     }
 
     private void Update()
     {
-
-        if (Input.GetMouseButtonDown(0))
+        if (Touchscreen.current != null)
         {
-            Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            RaycastHit2D hit = Physics2D.Raycast(mousePosition, Vector2.zero);
+            var touch = Touchscreen.current.primaryTouch;
 
-            if (hit.collider != null && hit.collider.gameObject == gameObject)
+            if (touch.press.wasPressedThisFrame) // Если палец коснулся экрана
             {
-                isHold = true;
-                offset = (Vector2)transform.position - mousePosition;
-            }
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            isHold = false;            
+                Vector2 touchPosition = Camera.main.ScreenToWorldPoint(touch.position.ReadValue());
+                RaycastHit2D hit = Physics2D.Raycast(touchPosition, Vector2.zero);
 
-            if (inCollider && !ColliderExit())
+                if (hit.collider != null && hit.collider.gameObject == gameObject) // Если попали в объект
+                {
+                    SetPriorityPosition();
+                    isHold = true;
+                }
+            }
+            else if (touch.press.isPressed && isHold) // Если палец двигается
             {
-                StartGravity();
+                Vector2 touchPosition = Camera.main.ScreenToWorldPoint(touch.position.ReadValue());
+                transform.position = new Vector3(touchPosition.x, touchPosition.y, transform.position.z);
             }
-        }
+            else if (touch.press.wasReleasedThisFrame) // Если палец отпустили
+            {
+                if (isHold)
+                {
+                    SetStatePosition();
+                }
 
-        if (isHold)
-        {
-            Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            rb.MovePosition(mousePosition + offset);
+                isHold = false;
+            }
         }
     }
 
+    //Сommon rendering
+    private void SetStatePosition()
+    {
+        spriteRenderer.sortingOrder = 1;
+
+        Vector3 viewPos = transform.position;
+        viewPos.z = viewPos.y;
+        transform.position = viewPos;   
+    }
+
+    //Priority rendering
+    private void SetPriorityPosition()
+    {
+        spriteRenderer.sortingOrder = 100;
+
+        Vector3 viewPos = transform.position;
+        viewPos.z = - 9;
+        transform.position = viewPos;
+    }
+
+    //The object came out of collision along the lower boundary
     private bool ColliderExit()
     {
         Vector2 minPoint = new Vector2(totalCollider.bounds.center.x, totalCollider.bounds.min.y);
@@ -60,33 +87,46 @@ public class ItemManager : MonoBehaviour
             return false;            
     }
 
+    //Turn off gravity
     private void StopGravity()
     {
         rb.gravityScale = 0.0f;
         rb.linearVelocity = Vector2.zero;
         inCollider = true;
+
+        SetStatePosition();
     }
 
+    //Turn on gravity
     private void StartGravity()
     {
         rb.gravityScale = 1.0f;
         inCollider = false;
     }
 
+    //The object has entered into a collision
     private void OnTriggerStay2D(Collider2D other)
     {
+        if (!other.CompareTag("Furniture"))
+            return;
+
         if(!inCollider)
         {
             currentCollider = other.GetComponent<Collider2D>();
-            if (ColliderExit())
+            if (ColliderExit() && !isHold)
             {
                 StopGravity();
             }
         }  
     }
 
+    //The object is out of collision
     private void OnTriggerExit2D(Collider2D other)
     {
+        if (!other.CompareTag("Furniture"))
+            return;
+
         StartGravity();
     }
+
 }

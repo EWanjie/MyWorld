@@ -48,7 +48,14 @@ public class ItemManager : MonoBehaviour
             {
                 if (isHold)
                 {
-                    SetStatePosition();
+                    if (inCollider && !ColliderExit())
+                    {
+                        StartGravity();
+                    }
+                    else
+                    {
+                        SetStatePosition();
+                    } 
                 }
 
                 isHold = false;
